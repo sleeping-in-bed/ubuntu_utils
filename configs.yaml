@@ -1,0 +1,5 @@
+debug: true
+execution_record_file: exec.json
+vars_file: vars.json
+remote_url: http://fs
+tmp_dir: /tmp

@@ -1,0 +1,7 @@
+{
+    "host_ID": 3,
+    "docker_registry_host_ID": 3,
+    "docker_registry_host_username": "a",
+    "docker_registry_host_passwd": 1,
+    "file_server_address": "192.168.227.250"
+}

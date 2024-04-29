@@ -1,0 +1,6 @@
+compose.yml
+Dockerfile
+.idea
+__pycache__/
+tests/tmp
+exec.json

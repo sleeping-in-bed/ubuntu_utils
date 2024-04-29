@@ -1,0 +1,3 @@
+psplpy==1.0.0
+colorama
+pyyaml

@@ -1,6 +1,5 @@
 from __init__ import *
 import argparse
-from framework.run_command import *
 
 
 def get_args() -> argparse.Namespace:
@@ -25,16 +24,16 @@ if __name__ == '__main__':
         if not args.o:
             args.o = f'{args.i}.tar'
             args.o = args.o.replace('/', '_')
-        p_os_system(f'docker save -o {args.o} {args.i}')
-        p_os_system(f'nice -n 19 sudo xz -T0 --verbose -{args.c} {args.o}')
+        execute(f'docker save -o {args.o} {args.i}')
+        execute(f'nice -n 19 sudo xz -T0 --verbose -{args.c} {args.o}')
         xz_name = args.o + '.xz'
-        p_os_system(f'sudo chmod 666 {xz_name}')
-        p_os_system(f'sudo xz --list {xz_name}')
+        execute(f'sudo chmod 666 {xz_name}')
+        execute(f'sudo xz --list {xz_name}')
     elif args.d:
         if args.r:
             save_path = remote.get_file(f'docker/images/{args.d}')
             args.d = str(save_path)
-        p_os_system(f'sudo xz -dk --verbose {args.d}')
+        execute(f'sudo xz -dk --verbose {args.d}')
         tar_path = args.d.rstrip(".xz")
-        p_os_system(f'docker load -i {tar_path}')
-        p_os_system(f'sudo rm {tar_path}')
+        execute(f'docker load -i {tar_path}')
+        execute(f'sudo rm {tar_path}')

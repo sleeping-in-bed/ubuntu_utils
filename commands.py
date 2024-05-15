@@ -1,10 +1,28 @@
-import re
-from framework.run_command import *
+import shutil
+from framework.instances import *
+
+
+def append_hosts(ip: str, host: str) -> None:
+    hosts_path = Path('/etc/hosts')
+    new_host = f'{ip} {host}'
+    hosts_contents = hosts_path.read_text()
+    if new_host not in hosts_contents:
+        hosts_path.write_text(hosts_contents + f'\n{new_host}')
 
 
 def pre_settings():
-    # update apt
-    r.exec('sudo apt-get update')
+    # update apt and upgrade software
+    r.exec('sudo apt update')
+    r.exec('sudo apt upgrade -y')
+    r.exec('sudo ubuntu-drivers install')
+    # install language supports and add pinyin input sources
+    r.exec('sudo apt install -y $(check-language-support)')
+    input_source = "[('xkb', 'us'), ('ibus', 'libpinyin')]"
+    r.exec(f'gsettings set org.gnome.desktop.input-sources sources "{input_source}"')
+    # disable software update notifications
+    r.exec('gsettings set com.ubuntu.update-notifier no-show-notifications true')
+    # set do nothing when close laptop lid
+    r.replace('/etc/systemd/logind.conf', '#HandleLidSwitch=suspend', 'HandleLidSwitch=ignore')
     # disable automatic screen blanking
     r.exec('gsettings set org.gnome.desktop.session idle-delay 0')
     # create an empty template named 'new.sh'
@@ -18,13 +36,14 @@ def pre_settings():
     # install python dev env
     r.exec('sudo apt-get install build-essential python3-dev python3-pip python-is-python3 -y')
     r.exec('sudo pip install --no-cache-dir psplpy')
-    # install some other pieces of software
-    # xclip for clip string to clipboard
-    r.exec('sudo apt-get install xclip expect -y')
-    # change the text size by resolution
-    xrandr_info = r.capture("xrandr")
+    # install some other software
+    # baobab is the disk usage analyzer, xclip for clipping string to clipboard, expect for simulating input
+    r.exec('sudo apt-get install baobab xclip expect -y')
+    # change the text size by the resolution
+    xrandr_info = r.capture("xrandr", no_check=True).stdout
     match = re.search(r'current\s+(\d+)\s+x\s+(\d+)', xrandr_info)
     width, height = (int(match.group(1)), int(match.group(2))) if match else (0, 0)
+    print(width, height)
     text_scaling = 1
     if width > 1920 or height > 1080:
         text_scaling = 1.25
@@ -32,21 +51,20 @@ def pre_settings():
     # show hidden files
     r.exec('gsettings set org.gtk.Settings.FileChooser show-hidden true')
     # add my scripts to path and make them executable
-    scripts_dir = project_dir / "scripts"
     content = f'export PATH="$PATH:{scripts_dir}"'
     r.exec(f"echo '{content}' >> ~/.bashrc")
     r.exec(f'chmod +x {scripts_dir}/*')
     # create a /swapfile equals with the memory's size and mount it to enable hibernate
-    memory_gb = r.capture("free -h | grep 'Mem:' | awk '{print $2}'")[:-3]
-    r.exec(f'sudo {scripts_dir}/chswap {memory_gb}')
-    has_mounted_swapfile = r.capture("cat /etc/fstab | grep '/swapfile'", ignore_error=True)
+    memory_gb = r.capture("free -h | grep 'Mem:' | awk '{print $2}'", no_check=True).stdout[:-3]
+    r.chdir(scripts_dir)
+    r.exec(f'sudo ./chswap {memory_gb}')
+    has_mounted_swapfile = r.capture("cat /etc/fstab | grep '/swapfile'", ignore_error=True).stdout
     if not has_mounted_swapfile:
         r.exec("echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab")
     # set 'sudo' not need password
     r.exec(f"echo 'ALL ALL = (ALL) NOPASSWD: ALL' | sudo tee -a /etc/sudoers")
     # adding file server's address to host
-    r.input('file_server_address', 'File Server Address:\n')
-    append_hosts(r.vars.file_server_address, 'fs')
+    append_hosts(r.vars['file_server_address'], 'fs')
     # password root and allow root to log into the desktop
     r.exec("echo 'root:root' | sudo chpasswd")
     old = '#  TimedLoginDelay = 10'
@@ -56,6 +74,9 @@ def pre_settings():
 
 
 def post_settings():
+    # clear the cache and trash files
+    r.chdir(scripts_dir)
+    r.exec(f'sudo ./free-space')
     # uncomment WaylandEnable=false, enable X to make sure PIL.ImageGrab.grab(xdisplay=':0') work properly,
     # xdisplay='$DISPLAY' makes the remote development work properly
     # and this can make the gui in docker show correctly on host
@@ -63,18 +84,13 @@ def post_settings():
     r.exec('sudo systemctl restart gdm3')
 
 
-def append_hosts(ip: str, hosts: str) -> None:
-    r.exec(f'echo "{ip} {hosts}" | sudo tee -a /etc/hosts')
-
-
 def ip_configuration():
     netplan_name = '01-network-manager-all.yaml'
     netplan_path = Path('/etc/netplan') / netplan_name
     netplan_template = open(resources_dir / netplan_name).read()
-    r.input('host_id', 'IP host ID:\n')
-    ens_name = r.capture("ip link show | grep -oE 'ens[0-9]+'")  # 查找Ethernet设备名
+    ens_name = r.capture("ip link show | grep -oE 'ens[0-9]+'").stdout  # 查找Ethernet设备名
     ens_name = ens_name.strip()
-    netplan_content = netplan_template.format(ens_name=ens_name, host_ID=r.vars.host_id)
+    netplan_content = netplan_template.format(ens_name=ens_name, host_ID=r.vars['host_addr'])
     command = f'echo "{netplan_content}" > {netplan_path}'
     r.exec(f"sudo bash -c '{command}'")  # 写入文件
     r.exec('sudo systemctl start systemd-networkd')
@@ -105,21 +121,24 @@ def install_anaconda(installation_dir=Path('~/anaconda3')):
 
 
 def install_docker(version: str = '25.0.5'):
+    r.exec('sudo pip install --no-cache-dir docker')
     # Add Docker's official GPG key
     r.exec('sudo apt-get install ca-certificates curl -y')
     r.exec('sudo install -m 0755 -d /etc/apt/keyrings')
     r.exec('sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc')
     r.exec('sudo chmod a+r /etc/apt/keyrings/docker.asc')
     # Add the repository to Apt sources
-    r.exec('echo deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] '
-           'https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | '
-           'sudo tee /etc/apt/sources.list.d/docker.list > /dev/null')
+    r.exec('echo \
+"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+$(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+sudo tee /etc/apt/sources.list.d/docker.list > /dev/null')
     r.exec('sudo apt-get update')
 
     # Install the Docker packages
     if version:
         # List the available versions
-        version_list = r.capture("apt-cache madison docker-ce | awk '{ print $3 }'").split('\n')
+        version_list = r.capture("apt-cache madison docker-ce | awk '{ print $3 }'",
+                                 no_check=True).stdout.split('\n')
         version_string = ''
         for v in version_list:
             if version in v:
@@ -130,7 +149,8 @@ def install_docker(version: str = '25.0.5'):
                'docker-buildx-plugin docker-compose-plugin -y')
     else:
         # Install latest version
-        r.exec('sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin')
+        r.exec(
+            'sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y')
 
     # Create the docker group
     r.exec('sudo groupadd docker', ignore_error=True)
@@ -174,7 +194,7 @@ def login_docker():
            f'echo "Name-Email: {email}" >> keyparams && '
            'echo "Expire-Date: 2y" >> keyparams && '
            'gpg --batch --pinentry-mode loopback --passphrase "" --generate-key keyparams')
-    output = r.capture(f'gpg --list-secret-keys {email}')
+    output = r.capture(f'gpg --list-secret-keys {email}').stdout
     match = re.search(rf'sec.*?\n(.*?)\nuid.*?{name} <{email}>', output)
     key = match.group(1).strip() if match else ''
     # To initialize pass, run the following command using the public key generated from the previous command
@@ -187,11 +207,10 @@ def login_docker():
 def install_docker_registry():
     r.exec('mkdir ~/certs')
     r.exec('sudo apt-get install openssl')
-    r.input('docker_registry_host_ID', 'Docker Registry host ID:\n')
     r.exec('openssl req -newkey rsa:4096 -nodes -sha256 -keyout ~/certs/domain.key -x509 -days 365 '
            f'-out ~/certs/domain.crt '
-           f'-subj "/C=US/ST=New York/L=New York City/O=MyOrg/OU=MyUnit/CN=192.168.227.{r.vars.docker_registry_host_ID}" '
-           f'-addext "subjectAltName = IP:192.168.227.{r.vars.docker_registry_host_ID}"')
+           f'-subj "/C=US/ST=New York/L=New York City/O=MyOrg/OU=MyUnit/CN={r.vars["network_addr"]}.{r.vars["host_addr"]}" '
+           f'-addext "subjectAltName = IP:{r.vars["network_addr"]}.{r.vars["host_addr"]}"')
     r.exec('docker run -d '
            '--restart=always '
            '--name registry '
@@ -206,13 +225,10 @@ def install_docker_registry():
 
 def add_registry_certificate_to_trusted():
     r.exec('sudo apt install sshpass')
-    r.input('docker_registry_host_username', 'Docker Registry host username:\n')
-    r.input('docker_registry_host_passwd', 'Docker Registry host password:\n')
-    r.input('docker_registry_host_ID', 'Docker Registry host ID:\n')
-    r.exec(f'sudo mkdir -p /etc/docker/certs.d/192.168.227.{r.vars.docker_registry_host_ID}:5000')
-    r.exec(f'sudo sshpass -p "{r.vars.docker_registry_host_passwd}" scp -o StrictHostKeyChecking=no '
-           f'{r.vars.docker_registry_host_username}@192.168.227.{r.vars.docker_registry_host_ID}:'
-           f'~/certs/domain.crt /etc/docker/certs.d/192.168.227.{r.vars.docker_registry_host_ID}:5000/ca.crt')
+    r.exec(f'sudo mkdir -p /etc/docker/certs.d/{r.vars["network_addr"]}.{r.vars["host_addr"]}:5000')
+    r.exec(f'sudo sshpass -p "{r.vars["password"]}" scp -o StrictHostKeyChecking=no '
+           f'{r.vars["username"]}@192.168.227.{r.vars["host_addr"]}:'
+           f'~/certs/domain.crt /etc/docker/certs.d/{r.vars["network_addr"]}.{r.vars["host_addr"]}:5000/ca.crt')
     r.exec('sudo systemctl restart docker')
 
 
@@ -227,13 +243,13 @@ def install_chrome():
 
 
 def install_wps():
-    save_path = remote.get_file('software/wps')
+    save_path = remote.get_file('software/wps-office_11.1.0.11719.XA_amd64.deb')
     r.exec(f'sudo dpkg -i {save_path}')
     # this operation will resolve an internal error occurred after startup
-    wps_cloud_dir = r.capture('find . -type d | grep -i "WPSCloudSvr"')
+    wps_cloud_dir = r.capture('find . -type d | grep -i "WPSCloudSvr"').stdout
     r.exec(f'rm -r {wps_cloud_dir}')
     # resolve "Some formula symbols might not be displayed correctly due to missing fonts Symbol" issue
-    save_path = remote.get_file('wps-fonts.zip')
+    save_path = remote.get_file('software/wps-fonts.zip')
     font_dir = '/usr/share/fonts/truetype/msttcorefonts/.'
     r.exec('sudo mkdir -p {font_dir}')
     r.exec(f'sudo unzip {save_path} -d {font_dir}')
@@ -255,7 +271,6 @@ def install_qq():
 
 def install_vmware_workstation():
     vmware_key = "vmware_key"
-    pw = "1"
     # get essential files
     vmware_host_modules_path = remote.get_file('software/vmware-host-modules.tar.xz')
     r.exec(f'sudo tar -xvf {vmware_host_modules_path} -C {vmware_host_modules_path.parent}')
@@ -265,7 +280,7 @@ def install_vmware_workstation():
     r.exec(f'sudo {vmware_path}')
     # install essential packages to compile vmmon and vmnet
     r.exec('sudo apt update')
-    r.exec('sudo apt install build-essential gcc-12 linux-headers-"$(uname -r)" expect -y')
+    r.exec('sudo apt install build-essential gcc-12 linux-headers-"$(uname -r)" -y')
     # change the ownership of repository and compile
     r.exec(f'sudo chown -R --no-dereference $USER:$USER {vmware_host_modules_path.parent}')
     r.exec(f'cd {vmware_host_modules_path.parent / Path(vmware_host_modules_path.stem).stem} && '
@@ -273,15 +288,31 @@ def install_vmware_workstation():
            'sudo make && '
            'sudo make install && '
            # I have no idea but essential, otherwise "Could not open /dev/vmmon: No such file or directory" will occur
-           f'sudo openssl req -new.sh -x509 -newkey rsa:2048 -keyout {vmware_key}.priv '
+           f'sudo openssl req -new -x509 -newkey rsa:2048 -keyout {vmware_key}.priv '
            f'-outform DER -out {vmware_key}.der -nodes -days 36500 -subj "/CN=VMware/" && '
-           f'sudo /usr/src/linux-headers-"$(uname -r)"/scripts/sign-file sha256 ./{vmware_key}.priv ./{vmware_key}.der "$(modinfo -n vmmon)" && '
-           f'sudo /usr/src/linux-headers-"$(uname -r)"/scripts/sign-file sha256 ./{vmware_key}.priv ./{vmware_key}.der "$(modinfo -n vmnet)" && '
-           fr'''expect << EOF
-spawn sudo mokutil --import {vmware_key}.der 
-expect "password:"
-send "{pw}\r"
-EOF''')
-    r.exec(f'echo "Password is: {pw}"')
+           f'sudo /usr/src/linux-headers-`uname -r`/scripts/sign-file sha256 ./{vmware_key}.priv ./{vmware_key}.der "$(modinfo -n vmmon)" && '
+           f'sudo /usr/src/linux-headers-`uname -r`/scripts/sign-file sha256 ./{vmware_key}.priv ./{vmware_key}.der "$(modinfo -n vmnet)" && '
+           f'sudo mokutil --import {vmware_key}.der')
     r.exec("echo \"Now it's time for reboot, remember the password. You will get a blue screen after reboot "
            "choose 'Enroll MOK' -> 'Continue' -> 'Yes' -> 'enter password' -> 'OK' or 'REBOOT' \"")
+
+
+def install_nvidia_container_toolkit():
+    r.exec("curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+            && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+            sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+            sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list")
+    r.exec('sudo apt-get update')
+    r.exec('sudo apt-get install -y nvidia-container-toolkit')
+    r.exec('sudo nvidia-ctk runtime configure --runtime=docker')
+    r.exec('sudo systemctl restart docker')
+
+
+def install_mission_center():
+    r.exec('sudo apt install -y flatpak')
+    r.exec('sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo')
+    app_name = 'io.missioncenter.MissionCenter'
+    r.exec(f'flatpak install -y flathub {app_name}')
+    shutil.copy2(f'/var/lib/flatpak/app/{app_name}/current/active/files/share/applications/{app_name}.desktop',
+                 f'/usr/share/applications/{app_name}.desktop')
+

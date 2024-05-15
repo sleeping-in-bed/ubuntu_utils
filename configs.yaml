@@ -1,5 +1,13 @@
 debug: true
+# the file stores the records of which command has been executed
 execution_record_file: exec.json
+# the file stores the variables needed in runinng
 vars_file: vars.json
+# the remote root url of the files can be retrieved in running
 remote_url: http://fs
+# the temp dir to store the temp files when the program is running
 tmp_dir: /tmp
+# the interval after a command is finished
+interval: 0.5
+# the dir of the files needed in running
+packages_dir: '/media/a/Software4/Virtual Machines/Files'

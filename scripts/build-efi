@@ -1,0 +1,4 @@
+#!/bin/bash
+
+source myshlib
+sudo_exec_script_dir_py "build-efi.py" $@

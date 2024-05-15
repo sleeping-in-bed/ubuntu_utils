@@ -4,3 +4,4 @@ Dockerfile
 __pycache__/
 tests/tmp
 exec.json
+vars.json

@@ -1,3 +1,4 @@
-psplpy==1.0.0
+psplpy
+pika
 colorama
 pyyaml

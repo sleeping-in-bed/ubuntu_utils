@@ -33,9 +33,20 @@ get_dbus_session_bus_address_env_var() {
 
 exec_script_dir_py() {
   local python_filename="$1"
+  shift
   local script_dir
   script_dir=$(dirname "$0")
   local python_file
   python_file="$script_dir/$python_filename"
   python3 "$python_file" "$@"
+}
+
+sudo_exec_script_dir_py() {
+  local python_filename="$1"
+  shift
+  local script_dir
+  script_dir=$(dirname "$0")
+  local python_file
+  python_file="$script_dir/$python_filename"
+  sudo python3 "$python_file" "$@"
 }

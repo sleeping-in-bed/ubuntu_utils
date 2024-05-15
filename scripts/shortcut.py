@@ -7,6 +7,8 @@ def get_args() -> argparse.Namespace:
     parser.add_argument('exec', type=str, help="The path of the executable")
     parser.add_argument('-n', '--name', type=str, help="The name of the shortcut")
     parser.add_argument('-i', '--icon', type=str, help="The icon path of the shortcut")
+    parser.add_argument('-t', '--terminal', type=str,
+                        help='"false" indicates not show the terminal, and "true" vice versa')
 
     parsed_args = parser.parse_args()
     return parsed_args
@@ -27,9 +29,11 @@ if __name__ == '__main__':
     '''
     if args.icon:
         args.icon = str(Path(args.icon).resolve())
-        template += f'Icon={args.icon}'
+        template += f'Icon={args.icon}\n'
+    if args.terminal:
+        template += f'Terminal={args.terminal}\n'
 
     shortcut_name = f'{args.name}.desktop'
     desktop_shortcut_path = Path().home() / 'Desktop' / shortcut_name
     desktop_shortcut_path.write_text(template)
-    p_os_system(f'chmod +x {str(desktop_shortcut_path)}')
+    execute(f'chmod +x {str(desktop_shortcut_path)}')

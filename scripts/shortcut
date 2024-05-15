@@ -1,4 +1,4 @@
 #!/bin/bash
 
 source myshlib
-exec_script_dir_py "shortcut.py"
+exec_script_dir_py "shortcut.py" $@

@@ -4,5 +4,5 @@
     "max-size": "10m",
     "max-file": "3"
   },
-  "data-root": "/WorkSpace/Docker"
+  "data-root": "/Docker"
 }

@@ -1,4 +1,4 @@
-from framework.instances import *
+from src.framework.instances import *
 
 
 def test():
@@ -17,7 +17,7 @@ def test():
     c = Check()
     c.commands_path = Path(__file__)
     try:
-        rp = RootProcess(routing_key=user_mark, binding_key=user_result_mark, _check=c)
+        rp = RootProcess(_check=c)
     except Check.DuplicateCodeError as e:
         pass
     else:

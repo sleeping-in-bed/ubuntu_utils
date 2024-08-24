@@ -1,14 +1,21 @@
 import functools
+import json
 import os
 import re
 import subprocess
 import io
 from pathlib import Path
 from typing import Callable
-
 from colorama import Fore, Back, Style, init
-
 init(autoreset=True)
+
+
+def load_dict(path: str | Path) -> dict:
+    path = Path(path)
+    if not path.exists() or not path.read_text().strip():
+        return {}
+    dictionary = json.loads(path.read_text())
+    return dictionary
 
 
 class Ret:
@@ -18,6 +25,12 @@ class Ret:
 
     def __getitem__(self, index):
         return self._seq[index]
+
+    def __str__(self):
+        return self.stdout
+
+    def __repr__(self):
+        return repr(str(self))
 
 
 def command_print(command: str, *args, **kwargs) -> None:
@@ -92,6 +105,13 @@ def capture(command: str, ignore_error: bool | list | tuple = False, show_comman
     return execute(command, capture=True, ignore_error=ignore_error, show_command=show_command)
 
 
+def is_vmware() -> bool:
+    output = capture('lspci', show_command=False)
+    if 'USB controller: VMware' in output.stdout:
+        return True
+    return False
+
+
 class ConfigEditor:
     def __init__(self, path: str | Path = None, string: str = None, encoding: str = 'utf-8'):
         self.path = Path(path) if path else None
@@ -161,8 +181,3 @@ class ConfigEditor:
             if preappend:
                 return f'{key}={value}\n' + self.string
             return self.string + f'{key}={value}\n'
-
-
-class FileWriter:
-    def __init__(self, path: str | Path):
-        self.path = Path(path)

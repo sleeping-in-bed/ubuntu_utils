@@ -18,10 +18,5 @@ if __name__ == '__main__':
     execute(f'{parted_command} print free')
     partition_name = f'{args.disk}p1' if 'nvme' in args.disk else f'{args.disk}1'
     execute(f'sudo mkfs.ext4 {partition_name}')
-    execute(f'sudo mkdir {args.dir}', ignore_error=True)
-    execute(f'sudo mount {partition_name} {args.dir}')
-    mounted = capture('mount').stdout
-    media_path = re.search(rf'{partition_name} on (/.*?) .*', mounted).group(1)
-    execute(f'sudo chmod 777 {media_path}')
-    execute(f'echo "{partition_name} {args.dir} ext4 defaults 0 0" | sudo tee -a /etc/fstab')
-    execute('lsblk')
+
+    execute(f'm-part {partition_name} {args.dir} --type ext4')

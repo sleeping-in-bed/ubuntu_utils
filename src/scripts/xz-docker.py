@@ -22,7 +22,7 @@ if __name__ == '__main__':
         raise argparse.ArgumentError(None, 'Option -d or -i must be given one.')
     if args.i:
         if not args.o:
-            args.o = f'{args.i}.tar'
+            args.o = f'{args.i.replace(":", "_")}.tar'
             args.o = args.o.replace('/', '_')
         execute(f'docker save -o {args.o} {args.i}')
         execute(f'nice -n 19 sudo xz -T0 --verbose -{args.c} {args.o}')

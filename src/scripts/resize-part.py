@@ -7,7 +7,6 @@ def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Resize a disk partition')
     parser.add_argument('part', type=str, help="The part name to resize, e.g. /dev/sda1")
     parser.add_argument('new_size', type=str, help="The new.sh size of the partition, e.g. 64GB, 100%%")
-
     parsed_args = parser.parse_args()
     return parsed_args
 
@@ -15,9 +14,13 @@ def get_args() -> argparse.Namespace:
 if __name__ == '__main__':
     args = get_args()
 
-    match = re.match(r'(.*?)(\d+)', args.part)
-    disk = match.group(1)
-    partition = match.group(2)
+    if 'nvme' in args.part:
+        disk = args.part.split('p')[0]
+        partition = args.part.split('p')[1]
+    else:
+        match = re.match(r'(.*?)(\d+)', args.part)
+        disk = match.group(1)
+        partition = match.group(2)
 
     execute('df -h')
     execute(f'sudo parted {disk} unit GB print free')
@@ -25,4 +28,3 @@ if __name__ == '__main__':
     execute(f'sudo parted {disk} unit GB print free')
     execute(f'sudo resize2fs {args.part}')
     execute('df -h')
-    

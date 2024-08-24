@@ -1,7 +1,7 @@
-compose.yml
-Dockerfile
+src/compose.yml
+src/Dockerfile
 .idea
 __pycache__/
-tests/tmp
-exec.json
+src/tmp
+src/tests/tmp
 vars.json

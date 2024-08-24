@@ -1,3 +1,4 @@
+import math
 import shutil
 from framework.instances import *
 
@@ -10,32 +11,49 @@ def append_hosts(ip: str, host: str) -> None:
         hosts_path.write_text(hosts_contents + f'\n{new_host}')
 
 
-def pre_settings():
-    # update apt and upgrade software
+def check_and_modify_the_lang():
+    if not r.capture('echo $LANG', no_check=True) == 'en_US.UTF-8':
+        r.exec('sudo update-locale LANG=en_US.UTF-8', no_check=True)
+        r.exec('sudo update-locale', no_check=True)
+        # change the standard dirs name
+        # log out the desktop environment to apply the changes
+        r.exec('gnome-session-quit --logout --no-prompt', no_check=True)
+        # then select change the standard dirs name
+
+
+def install_python_libs():
+    r.exec('sudo pip install --no-cache-dir psplpy pyautogui pynput opencv-python docker')
+    r.exec('sudo apt-get install -y python3-tk python3-dev')    # to use the pyautogui
+
+
+def general_upgrade():
+    # update apt & upgrade software and disable software update notifications & auto install drivers
     r.exec('sudo apt update')
     r.exec('sudo apt upgrade -y')
+    r.exec('gsettings set com.ubuntu.update-notifier no-show-notifications true')
     r.exec('sudo ubuntu-drivers install')
     # install language supports and add pinyin input sources
     r.exec('sudo apt install -y $(check-language-support)')
     input_source = "[('xkb', 'us'), ('ibus', 'libpinyin')]"
     r.exec(f'gsettings set org.gnome.desktop.input-sources sources "{input_source}"')
-    # disable software update notifications
-    r.exec('gsettings set com.ubuntu.update-notifier no-show-notifications true')
+
+
+def pre_settings():
+    r.exec('sudo apt update')
     # set do nothing when close laptop lid
     r.replace('/etc/systemd/logind.conf', '#HandleLidSwitch=suspend', 'HandleLidSwitch=ignore')
     # disable automatic screen blanking
     r.exec('gsettings set org.gnome.desktop.session idle-delay 0')
-    # create an empty template named 'new.sh'
-    r.exec('touch ~/Templates/new.sh')
-    r.exec('chmod 775 ~/Templates/new.sh')
-    # install openssh server
+    # create an empty template named 'new'
+    r.exec('touch ~/Templates/new')
+    r.exec('chmod 775 ~/Templates/new')
+    # install openssh server & modify the ssh config to allow root login
     r.exec('sudo apt install openssh-server -y')
-    # modify the ssh config to allow root login
     r.exec("sudo sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config")
     r.exec('sudo systemctl restart sshd')
     # install python dev env
     r.exec('sudo apt-get install build-essential python3-dev python3-pip python-is-python3 -y')
-    r.exec('sudo pip install --no-cache-dir psplpy')
+    install_python_libs()
     # install some other software
     # baobab is the disk usage analyzer, xclip for clipping string to clipboard, expect for simulating input
     r.exec('sudo apt-get install baobab xclip expect -y')
@@ -57,7 +75,7 @@ def pre_settings():
     # create a /swapfile equals with the memory's size and mount it to enable hibernate
     memory_gb = r.capture("free -h | grep 'Mem:' | awk '{print $2}'", no_check=True).stdout[:-3]
     r.chdir(scripts_dir)
-    r.exec(f'sudo ./chswap {memory_gb}')
+    r.exec(f'sudo ./chswap {math.ceil(1.05 * float(memory_gb))}')
     has_mounted_swapfile = r.capture("cat /etc/fstab | grep '/swapfile'", ignore_error=True).stdout
     if not has_mounted_swapfile:
         r.exec("echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab")
@@ -71,6 +89,9 @@ def pre_settings():
     r.replace('/etc/gdm3/custom.conf', old, f'{old}\\nAllowRoot=True')
     old = 'auth	required	pam_succeed_if.so user != root quiet_success'
     r.replace('/etc/pam.d/gdm-password', old, f'# {old}')
+    # install flatpak
+    r.exec('sudo apt install -y flatpak')
+    r.exec('sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo')
 
 
 def post_settings():
@@ -121,7 +142,7 @@ def install_anaconda(installation_dir=Path('~/anaconda3')):
 
 
 def install_docker(version: str = '25.0.5'):
-    r.exec('sudo pip install --no-cache-dir docker')
+    r.exec('sudo apt update')
     # Add Docker's official GPG key
     r.exec('sudo apt-get install ca-certificates curl -y')
     r.exec('sudo install -m 0755 -d /etc/apt/keyrings')
@@ -171,10 +192,8 @@ sudo tee /etc/apt/sources.list.d/docker.list > /dev/null')
 
 
 def install_docker_desktop():
-    docker_desktop_deb = 'docker-desktop-4.27.1-amd64.deb'
     # Install docker desktop
-    save_path = f'/tmp/{docker_desktop_deb}'
-    r.exec(f'curl -o {save_path} http://fs/files/softwares/{docker_desktop_deb}')
+    save_path = remote.get_file('software/docker-desktop-4.27.1-amd64.deb')
     r.exec(f'sudo apt-get install {save_path} -y')
     # open Docker Desktop
     r.exec('systemctl --user start docker-desktop')
@@ -232,9 +251,18 @@ def add_registry_certificate_to_trusted():
     r.exec('sudo systemctl restart docker')
 
 
-def install_pycharm():
-    save_path = remote.get_file('software/pycharm-professional-2023.3.3.tar.gz')
-    r.exec(f'tar -xvf {save_path} -C ~ > /dev/null')
+def install_pycharm(remote_version: bool = True, version: str = '2023.3.3'):
+    if remote_version:
+        save_path = remote.get_file('docker/files/cache.tar.xz')
+        bin_dir = f'{r.home}/.cache/JetBrains/RemoteDev/dist/29c4955410b2e_pycharm-professional-{version}/bin'
+    else:
+        save_path = remote.get_file('software/pycharm-professional-2023.3.3.tar.gz')
+        bin_dir = f'{r.home}/pycharm-professional-{version}/bin'
+    r.exec(f'tar -xf {save_path} -C ~')
+
+    r.exec(f'sudo ln -s {bin_dir}/pycharm.sh /usr/local/bin/pycharm')
+    r.chdir(scripts_dir)
+    r.exec(f'./shortcut {bin_dir}/pycharm.sh -n pycharm -i {bin_dir}/pycharm.png -t false')
 
 
 def install_chrome():
@@ -246,22 +274,19 @@ def install_wps():
     save_path = remote.get_file('software/wps-office_11.1.0.11719.XA_amd64.deb')
     r.exec(f'sudo dpkg -i {save_path}')
     # this operation will resolve an internal error occurred after startup
-    wps_cloud_dir = r.capture('find . -type d | grep -i "WPSCloudSvr"').stdout
-    r.exec(f'rm -r {wps_cloud_dir}')
+    wps_cloud_dir = r.capture('sudo find /opt -name "wpscloudsvr"').stdout
+    r.exec(f'sudo rm -f {wps_cloud_dir}')
     # resolve "Some formula symbols might not be displayed correctly due to missing fonts Symbol" issue
     save_path = remote.get_file('software/wps-fonts.zip')
-    font_dir = '/usr/share/fonts/truetype/msttcorefonts/.'
-    r.exec('sudo mkdir -p {font_dir}')
+    font_dir = '/usr/share/fonts/truetype/msttcorefonts'
+    r.exec(f'sudo mkdir -p {font_dir}')
     r.exec(f'sudo unzip {save_path} -d {font_dir}')
     # refresh system font cache
     r.exec('sudo fc-cache -fv')
 
 
 def install_wechat():
-    r.exec('sudo apt update')
-    r.exec(f'sudo apt install flatpak -y')
-    r.exec('sudo flatpak remote-add --if-not-exists --system flathub https://flathub.org/repo/flathub.flatpakrepo')
-    r.exec('flatpak install com.tencent.WeChat.flatpak -y')
+    r.exec('flatpak install -y com.tencent.WeChat')
 
 
 def install_qq():
@@ -279,8 +304,7 @@ def install_vmware_workstation():
     r.exec(f'sudo chmod +x {vmware_path}')
     r.exec(f'sudo {vmware_path}')
     # install essential packages to compile vmmon and vmnet
-    r.exec('sudo apt update')
-    r.exec('sudo apt install build-essential gcc-12 linux-headers-"$(uname -r)" -y')
+    r.exec('sudo apt update && sudo apt install build-essential gcc-12 linux-headers-"$(uname -r)" -y')
     # change the ownership of repository and compile
     r.exec(f'sudo chown -R --no-dereference $USER:$USER {vmware_host_modules_path.parent}')
     r.exec(f'cd {vmware_host_modules_path.parent / Path(vmware_host_modules_path.stem).stem} && '
@@ -302,17 +326,46 @@ def install_nvidia_container_toolkit():
             && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
             sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
             sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list")
-    r.exec('sudo apt-get update')
-    r.exec('sudo apt-get install -y nvidia-container-toolkit')
+    r.exec('sudo apt update && sudo apt install -y nvidia-container-toolkit')
     r.exec('sudo nvidia-ctk runtime configure --runtime=docker')
     r.exec('sudo systemctl restart docker')
 
 
 def install_mission_center():
-    r.exec('sudo apt install -y flatpak')
-    r.exec('sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo')
     app_name = 'io.missioncenter.MissionCenter'
-    r.exec(f'flatpak install -y flathub {app_name}')
+    r.exec(f'flatpak install -y {app_name}')
     shutil.copy2(f'/var/lib/flatpak/app/{app_name}/current/active/files/share/applications/{app_name}.desktop',
                  f'/usr/share/applications/{app_name}.desktop')
 
+
+def install_sougoupinyin():
+    save_path = remote.get_file('software/sogoupinyin_4.2.1.145_amd64.deb')
+    r.exec(f'sudo apt update && sudo apt install -y fcitx')
+    # set the fcitx starting on boot
+    r.exec(f'sudo cp /usr/share/applications/fcitx.desktop /etc/xdg/autostart/')
+    r.exec(f'sudo apt install -y libqt5qml5 libqt5quick5 libqt5quickwidgets5 qml-module-qtquick2 libgsettings-qt1')
+    r.exec(f'sudo dpkg -i {save_path}')
+    r.exec(f"gsettings set org.gnome.desktop.input-sources sources \"[('xkb', 'fcitx')]\"")
+
+
+def install_vlc():
+    r.exec(f'sudo apt install -y vlc')
+
+
+def common_procedure():
+    try:
+        pre_settings()
+        install_docker()
+        install_pycharm()
+        install_chrome()
+        if not is_vmware():
+            install_nvidia_container_toolkit()
+            set_proxy()
+            install_vmware_workstation()
+            install_wps()
+            install_mission_center()
+            install_vlc()
+        install_sougoupinyin()
+        post_settings()
+    finally:
+        close_all()

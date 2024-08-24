@@ -37,3 +37,6 @@ if __name__ == '__main__':
     desktop_shortcut_path = Path().home() / 'Desktop' / shortcut_name
     desktop_shortcut_path.write_text(template)
     execute(f'chmod +x {str(desktop_shortcut_path)}')
+    execute(f'sudo cp {desktop_shortcut_path} {f"/usr/share/applications/{shortcut_name}"}')
+
+

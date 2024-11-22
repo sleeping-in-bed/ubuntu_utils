@@ -1,4 +1,0 @@
-psplpy
-pika
-colorama
-pyyaml

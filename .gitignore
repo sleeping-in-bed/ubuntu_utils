@@ -1,5 +1,5 @@
-src/compose.yml
-src/Dockerfile
+./compose.yml
+./Dockerfile
 .idea
 __pycache__/
 src/tmp

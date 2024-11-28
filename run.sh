@@ -7,7 +7,7 @@ else
     if [ -z "$output" ]; then
         echo "Has not GUI"
     else
-        gnome-terminal -- bash -c 'python3 ./src/framework/user_process.py 1; exec bash'
+        gnome-terminal -- bash -c 'python3 ./src/run_user_process.py 1; exec bash'
         sudo python3 ./src/main.py
     fi
 fi

@@ -12,6 +12,7 @@ def append_hosts(ip: str, host: str) -> None:
 
 
 def check_and_modify_the_lang():
+    """Be used in the chinese ubuntu, convert the standard dirname to english"""
     if not r.capture('echo $LANG', no_check=True) == 'en_US.UTF-8':
         r.exec('sudo update-locale LANG=en_US.UTF-8', no_check=True)
         r.exec('sudo update-locale', no_check=True)
@@ -69,12 +70,12 @@ def pre_settings():
     # show hidden files
     r.exec('gsettings set org.gtk.Settings.FileChooser show-hidden true')
     # add my scripts to path and make them executable
-    content = f'export PATH="$PATH:{scripts_dir}"'
+    content = f'export PATH="$PATH:{configs.scripts_dir}"'
     r.exec(f"echo '{content}' >> ~/.bashrc")
-    r.exec(f'chmod +x {scripts_dir}/*')
+    r.exec(f'chmod +x {configs.scripts_dir}/*')
     # create a /swapfile equals with the memory's size and mount it to enable hibernate
     memory_gb = r.capture("free -h | grep 'Mem:' | awk '{print $2}'", no_check=True).stdout[:-3]
-    r.chdir(scripts_dir)
+    r.chdir(configs.scripts_dir)
     r.exec(f'sudo ./chswap {math.ceil(1.05 * float(memory_gb))}')
     has_mounted_swapfile = r.capture("cat /etc/fstab | grep '/swapfile'", ignore_error=True).stdout
     if not has_mounted_swapfile:
@@ -96,7 +97,7 @@ def pre_settings():
 
 def post_settings():
     # clear the cache and trash files
-    r.chdir(scripts_dir)
+    r.chdir(configs.scripts_dir)
     r.exec(f'sudo ./free-space')
     # uncomment WaylandEnable=false, enable X to make sure PIL.ImageGrab.grab(xdisplay=':0') work properly,
     # xdisplay='$DISPLAY' makes the remote development work properly
@@ -108,7 +109,7 @@ def post_settings():
 def ip_configuration():
     netplan_name = '01-network-manager-all.yaml'
     netplan_path = Path('/etc/netplan') / netplan_name
-    netplan_template = open(resources_dir / netplan_name).read()
+    netplan_template = open(configs.resources_dir / netplan_name).read()
     ens_name = r.capture("ip link show | grep -oE 'ens[0-9]+'").stdout  # 查找Ethernet设备名
     ens_name = ens_name.strip()
     netplan_content = netplan_template.format(ens_name=ens_name, host_ID=r.vars['host_addr'])
@@ -128,10 +129,7 @@ def set_proxy():
 
 
 def install_anaconda(installation_dir=Path('~/anaconda3')):
-    anaconda_sh = 'Anaconda3-2023.09-0-Linux-x86_64.sh'
-    save_path = f'/tmp/{anaconda_sh}'
-    r.exec(f'curl -o {save_path} http://fs/files/softwares/{anaconda_sh}')
-    # install
+    save_path = remote.get_file('software/Anaconda3-2023.09-0-Linux-x86_64.sh')
     r.exec(f'bash {save_path} -b -p {installation_dir} && '
            f'eval "$({installation_dir}/bin/conda shell.bash hook)" && '
            'conda init && '
@@ -179,7 +177,7 @@ sudo tee /etc/apt/sources.list.d/docker.list > /dev/null')
     r.exec('sudo usermod -aG docker $USER')
 
     # setting the daemon.json
-    r.exec(f'sudo cp {resources_dir / "daemon.json"} /etc/docker/daemon.json')
+    r.exec(f'sudo cp {configs.resources_dir / "daemon.json"} /etc/docker/daemon.json')
 
     # On Debian and Ubuntu, the Docker service starts on boot by default. for other distros, run the following commands
     r.exec('sudo systemctl enable docker.service')
@@ -189,6 +187,10 @@ sudo tee /etc/apt/sources.list.d/docker.list > /dev/null')
     r.exec('sudo docker compose version')
     r.exec('sudo docker --version')
     r.exec('sudo docker version')
+
+
+def restore_docker_images():
+    pass
 
 
 def install_docker_desktop():
@@ -261,7 +263,7 @@ def install_pycharm(remote_version: bool = True, version: str = '2023.3.3'):
     r.exec(f'tar -xf {save_path} -C ~')
 
     r.exec(f'sudo ln -s {bin_dir}/pycharm.sh /usr/local/bin/pycharm')
-    r.chdir(scripts_dir)
+    r.chdir(configs.scripts_dir)
     r.exec(f'./shortcut {bin_dir}/pycharm.sh -n pycharm -i {bin_dir}/pycharm.png -t false')
 
 
@@ -350,22 +352,3 @@ def install_sougoupinyin():
 
 def install_vlc():
     r.exec(f'sudo apt install -y vlc')
-
-
-def common_procedure():
-    try:
-        pre_settings()
-        install_docker()
-        install_pycharm()
-        install_chrome()
-        if not is_vmware():
-            install_nvidia_container_toolkit()
-            set_proxy()
-            install_vmware_workstation()
-            install_wps()
-            install_mission_center()
-            install_vlc()
-        install_sougoupinyin()
-        post_settings()
-    finally:
-        close_all()

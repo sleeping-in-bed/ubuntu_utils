@@ -4,4 +4,5 @@
 __pycache__/
 src/tmp
 src/tests/tmp
+configs.yaml
 vars.json

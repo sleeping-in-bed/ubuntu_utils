@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+import rtoml
+
+
+os.chdir("../..")
+load_dotenv()
+data = rtoml.load(Path.cwd() / "pyproject.toml")
+
+project_name = data['project']['name']
+os.system(
+    f"sphinx-quickstart --sep "
+    f"-p {project_name} "
+    f'-a "the {project_name} developers" '
+    f'-v {".".join(data["project"]["version"])} '
+    f'-r {data["project"]["version"]} '
+    f"-l en "
+    f"docs"
+)
+
+conf_path = Path(os.getcwd()) / "docs" / "source" / "conf.py"
+conf_content = conf_path.read_text(encoding="utf-8")
+new = """extensions = [
+    'sphinx.ext.duration',
+    'sphinx.ext.doctest',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
+]
+"""
+conf_content = conf_content.replace("extensions = []", new)
+head = """import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+"""
+conf_content = head + conf_content
+i18n = """
+locale_dirs = ["locale/"]
+gettext_compact = False
+"""
+conf_content += i18n
+conf_path.write_text(conf_content, encoding="utf-8")
+
+makefile_path = Path(os.getcwd()) / "docs" / "Makefile"
+makefile_content = makefile_path.read_text(encoding="utf-8")
+makefile_content += """
+livehtml:
+\tsphinx-autobuild "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+"""
+makefile_path.write_text(makefile_content, encoding="utf-8")

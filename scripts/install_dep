@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -e
+cd ..
+# add PATH before uv
+grep -Fxq 'export PATH="$HOME/.local/bin:$PATH"' ~/.bashrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+# install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+grep -Fxq 'eval "$(uv generate-shell-completion bash)"' ~/.bashrc || echo 'eval "$(uv generate-shell-completion bash)"' >> ~/.bashrc
+grep -Fxq 'eval "$(uvx --generate-shell-completion bash)"' ~/.bashrc || echo 'eval "$(uvx --generate-shell-completion bash)"' >> ~/.bashrc
+uv tool install tox --with tox-uv
+# install nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+nvm install --lts
+
+uv sync
+npm install

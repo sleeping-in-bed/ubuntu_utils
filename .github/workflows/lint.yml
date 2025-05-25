@@ -1,0 +1,17 @@
+name: Lint
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python test environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          python-version: "3.13"
+
+      - name: Run lint
+        run: tox --runner virtualenv -e format,type

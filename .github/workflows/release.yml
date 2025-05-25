@@ -1,0 +1,67 @@
+name: Semantic Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install semantic-release
+        run: |
+          npm install -g semantic-release \
+            @semantic-release/git \
+            @semantic-release/changelog \
+            conventional-changelog-conventionalcommits \
+
+      - name: Run semantic-release and capture output
+        id: semantic
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release > semantic-release.log || true
+          cat semantic-release.log
+
+          VERSION=$(grep -oP '\bPublished release \K[0-9]+\.[0-9]+\.[0-9]+' semantic-release.log || echo "")
+          rm -f semantic-release.log
+
+          if [[ -n "$VERSION" ]]; then
+            echo "Found new version: $VERSION"
+            echo "new_version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "No new version published or version not found in log."
+            echo "new_version=" >> $GITHUB_OUTPUT # Ensure output is set even if empty
+          fi
+
+      - name: Set up Python
+        if: steps.semantic.outputs.new_version != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Update files with new version using Python
+        if: steps.semantic.outputs.new_version != ''
+        env:
+          NEW_VERSION: ${{ steps.semantic.outputs.new_version }}
+        run: |
+          python ./.github/scripts/update_version.py
+
+      - name: Commit
+        if: steps.semantic.outputs.new_version != ''
+        uses: ./.github/actions/commit
+        with:
+            message: 'chore: update the version of the file(s) [skip ci]'
+            token: ${{ secrets.GITHUB_TOKEN }}

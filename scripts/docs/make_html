@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+import subprocess
+import click
+
+
+@click.command()
+@click.option(
+    "--lang", "-l",
+    default="en",
+    show_default=True,
+    help="Language code for building docs (e.g., en, zh_CN, de)."
+)
+def build_docs(lang):
+    cmd = ["make", "-e", f"SPHINXOPTS=-D language='{lang}'", "html"]
+    try:
+        subprocess.run(cmd, cwd="../../docs", check=True)
+    except subprocess.CalledProcessError as e:
+        click.echo(str(e), err=True)
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    build_docs()

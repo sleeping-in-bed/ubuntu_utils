@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+(./test) &&
+(./build_and_upload_to_pypi) &&
+(./push_to_github)

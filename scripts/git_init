@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+cd ..
+source .env
+git config --global user.email $GIT_EMAIL
+git config --global user.name $GIT_NAME
+git config --global core.autocrlf input
+git init
+git branch -M main
+git remote add origin $REMOTE_REPO
+git remote set-url origin $REMOTE_REPO
+npx husky init
+echo "npx --no -- commitlint --edit $1" > ./.husky/commit-msg
+echo "pre-commit run --hook-stage pre-commit" > ./.husky/pre-commit

@@ -1,0 +1,32 @@
+name: Commit
+description: Commit and push changes
+
+inputs:
+  message:
+    description: The commit message to use
+    required: true
+  token:
+    description: GitHub token
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+        if [[ -n "$(git status --porcelain)" ]]; then
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .
+          git reset HEAD .github/workflows/
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit after excluding workflow files."
+          else
+            git commit -m "${{ inputs.message }}"
+            git push "https://${{ github.actor }}:${{ inputs.token }}@github.com/${{ github.repository }}.git"
+          fi
+        else
+          echo "No changes made."
+        fi

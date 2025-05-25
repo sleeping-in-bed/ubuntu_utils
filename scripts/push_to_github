@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+import os
+import subprocess
+
+import click
+from dotenv import load_dotenv
+
+os.chdir("..")
+load_dotenv()
+
+
+def get_current_branch():
+    """Get the current git branch name."""
+    try:
+        branch = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL
+            )
+            .decode()
+            .strip()
+        )
+        return branch
+    except subprocess.CalledProcessError:
+        return "main"  # fallback
+
+
+@click.command()
+@click.option(
+    "-b",
+    default=lambda: get_current_branch(),
+    show_default="current branch",
+    help="The branch or tag name to push, default is current branch",
+)
+def push(b):
+    os.system(f"""/usr/bin/expect <<EOF
+    set timeout 10
+    spawn git push -u origin {b}
+    expect "Username for"
+    send "$GITHUB_USERNAME\r"
+    expect "Password for"
+    send "$GITHUB_TOKEN\r"
+    expect eof
+EOF""")
+
+
+if __name__ == "__main__":
+    push()

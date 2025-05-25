@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+cd ../../docs
+make gettext
+# For example, use "-l zh_CN -l es" to add languages
+# If you are updating existing po files, run directly
+uv run sphinx-intl update -p build/gettext "$@"
+# The first command may throw an error if the folder does not exist,
+# but don't worry, it will create the folder. The second command will run successfully.
+uv run sphinx-intl update -p build/gettext "$@"

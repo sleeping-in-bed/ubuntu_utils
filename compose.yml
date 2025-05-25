@@ -1,0 +1,54 @@
+services:
+  ubuntu_utils:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 22
+      - 80
+      - 443
+      - 8000
+    restart: unless-stopped
+    environment:
+      - DISPLAY=unix$DISPLAY
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - .:${PROJECT_DIR}
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+  postgres:
+    image: postgres:16
+    ports:
+      - ${DB_PORT}
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    restart: unless-stopped
+    volumes:
+      - ${DB_DATA}:/var/lib/postgresql/data
+  pgadmin:
+    image: dpage/pgadmin4:8.7
+    ports:
+      - 80
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${DB_PASSWORD}
+    restart: unless-stopped
+    volumes:
+      - ${PGADMIN_DATA}:/var/lib/pgadmin
+  redis:
+    image: redis:7
+    ports:
+      - ${REDIS_PORT}
+    restart: unless-stopped
+    volumes:
+      - ${REDIS_DATA}:/data
+  redisinsight:
+    image: redis/redisinsight:2.64
+    ports:
+      - 5540
+    environment:
+      - RI_LOG_LEVEL=info
+    volumes:
+      - ${REDISINSIGHT_DATA}:/data

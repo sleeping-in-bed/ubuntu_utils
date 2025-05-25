@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+docker compose up -d $@
+if [ -n "$PGADMIN_DATA" ]; then
+    sudo chown -R 5050:5050 $PGADMIN_DATA
+fi
+if [ -n "$REDISINSIGHT_DATA" ]; then
+    sudo chown -R 1000:1000 $REDISINSIGHT_DATA
+fi

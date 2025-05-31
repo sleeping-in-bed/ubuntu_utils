@@ -1,4 +1,6 @@
 /containerdata/
+/files/
+/ubuntu_utils/configs.py
 # py
 __pycache__/
 .venv/

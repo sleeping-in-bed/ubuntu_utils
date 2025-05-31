@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+from init import *
+import argparse
+
+
+def get_args() -> argparse.Namespace:
+    description = 'Build the EFI partition. Can be used after restored a system backup on a new disk'
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument('efi_part', type=str,
+                        help='The partition name where the EFI will be stored. For example, /dev/nvme0n1p2')
+    parser.add_argument('sys_part', type=str,
+                        help='The partition name where the system be stored. For example, /dev/nvme0n1p3')
+    parsed_args = parser.parse_args()
+    return parsed_args
+
+
+if __name__ == '__main__':
+    args = get_args()
+
+    match = re.match(r'(.*?)(\d+)', args.efi_part)
+    disk = match.group(1)
+    partition = match.group(2)
+    parted_command = f'sudo parted {disk}'
+
+    execute(f'sudo umount {args.efi_part}', ignore_error=['not mounted'])
+    execute(f'sudo mkfs.fat -F32 {args.efi_part}')
+    execute(f'{parted_command} set {partition} boot on')
+
+    blkids = execute(f'sudo blkid', capture=True).stdout
+    uuid = re.search(rf'{args.efi_part}.*?UUID="([^"]+)"', blkids).group(1)
+
+    mount_point = f'/tmp/{args.sys_part.replace("/", "-")}'
+    execute(f'sudo mkdir {mount_point}', ignore_error=True)
+    execute(f'sudo mount -t auto {args.sys_part} {mount_point}')
+    fstab_path = Path(mount_point) / '/etc/fstab'
+
+    replacement = f'UUID={uuid} /boot/efi vfat '
+    fstab_content = re.sub(r'UUID=(\S+)\s+/boot/efi\s+vfat\s', replacement, fstab_path.read_text())
+    execute(f"""sudo sh -c 'cat << EOF > {fstab_path}
+{fstab_content}
+EOF'""")
+
+    execute('sudo umount /boot/efi', ignore_error=['not mounted'])
+    execute(f'sudo mount -t vfat {args.efi_part} /boot/efi')
+
+    execute(f'sudo grub-install {disk}')
+    execute(f'sudo grub-install --efi-directory=/boot/efi')
+    execute('sudo update-grub')

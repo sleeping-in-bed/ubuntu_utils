@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+from init import *
+import argparse
+
+
+def get_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description='Permanently mount a partition to a directory')
+    parser.add_argument('part', type=str, help='The name of the partition to be mounted')
+    parser.add_argument('dir', type=str, help='The directory to be mounted to')
+    parser.add_argument('-t', '--type', type=str, default='ext4',
+                        help='The type of the partition to be mounted')
+    parsed_args = parser.parse_args()
+    return parsed_args
+
+
+if __name__ == '__main__':
+    args = get_args()
+    execute(f'sudo mkdir {args.dir}', ignore_error=True)
+    execute(f'sudo mount {args.part} {args.dir}')
+    mounted = capture('mount').stdout
+    media_path = re.search(rf'{args.part} on (/.*?) .*', mounted).group(1)
+    execute(f'sudo chmod 777 {media_path}')
+    execute(f'echo "{args.part} {args.dir} {args.type} defaults 0 0" | sudo tee -a /etc/fstab')
+    execute('lsblk')

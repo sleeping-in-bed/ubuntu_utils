@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+from init import *
+import argparse
+
+
+def get_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description='The wrapper of apt-offline')
+    parser.add_argument('packages', type=str, nargs='+', help='The package names to install')
+    parser.add_argument('-d', type=str, help='The directory to store deb files, '
+                                             'default is the "./ubuntu_utils/files/apt_offline"')
+    parsed_args = parser.parse_args()
+    return parsed_args
+
+
+if __name__ == '__main__':
+    args = get_args()
+
+    sig_name = 'apt-offline.sig'
+    if not args.d:
+        args.d = Settings.files_dir / 'apt_offline'
+    args.d.mkdir(exist_ok=True, parents=True)
+    ret = capture(f'sudo apt-offline set {sig_name} --install-packages {" ".join(args.packages)}',
+                  ignore_error=['ERROR'])
+    if 'ERROR' not in ret.stderr:
+        execute(f'sudo apt-offline get {sig_name} -d {args.d} --threads 5')
+    execute(f'sudo rm {sig_name}')

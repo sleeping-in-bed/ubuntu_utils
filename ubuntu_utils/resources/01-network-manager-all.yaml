@@ -1,0 +1,13 @@
+# Let NetworkManager manage all devices on this system
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    {ens_name}:
+      dhcp4: no
+      addresses: [{host_ip}/24]
+      routes:
+        - to: default
+          via: {gateway}
+      nameservers:
+        addresses: [{gateway}, 8.8.8.8]

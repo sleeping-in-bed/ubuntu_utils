@@ -1,0 +1,51 @@
+#!/bin/bash
+
+import_relative_script() {
+  local script_dir
+  script_dir=$(dirname "$0")
+  local relative_path="$script_dir/$1"
+  local canonical_path
+  canonical_path=$(realpath "$relative_path")
+  source "$canonical_path"
+}
+
+redirect_output_to() {
+  local output_file="$1"
+  exec > "$output_file" 2>&1
+}
+
+get_dbus_session_bus_address_env_var() {
+  # this function can be used when the "crontab" using "gsettings"
+  local pid=""
+  while [ -z "$pid" ]; do
+    # instead of 'gnome-session' it can be also used 'noutilus' or 'compiz' or the name of a process
+    # of a graphical program about that you are sure that is running after you log in the X session
+    pid=$(pgrep gnome-session)
+    sleep 1
+  done
+  # take the first pid
+  pid=$(echo "$pid" | head -n 1)
+  # export DBUS_SESSION_BUS_ADDRESS environment variable
+  export DBUS_SESSION_BUS_ADDRESS
+  DBUS_SESSION_BUS_ADDRESS=$(grep -z DBUS_SESSION_BUS_ADDRESS /proc/"$pid"/environ|cut -d= -f2-)
+}
+
+exec_script_dir_py() {
+  local python_filename="$1"
+  shift
+  local script_dir
+  script_dir=$(dirname "$0")
+  local python_file
+  python_file="$script_dir/$python_filename"
+  python3 "$python_file" "$@"
+}
+
+sudo_exec_script_dir_py() {
+  local python_filename="$1"
+  shift
+  local script_dir
+  script_dir=$(dirname "$0")
+  local python_file
+  python_file="$script_dir/$python_filename"
+  sudo python3 "$python_file" "$@"
+}

@@ -3,7 +3,7 @@ repos:
   rev: v5.0.0
   hooks:
     - id: check-yaml
-      exclude: pypjt/resources/compose.yml
+      exclude: ubuntu_utils/resources
     - id: check-toml
     - id: check-json
     - id: end-of-file-fixer
@@ -16,6 +16,7 @@ repos:
   rev: v1.5.0
   hooks:
     - id: detect-secrets
+      exclude: tests/test_ssh.py
 
 - repo: https://github.com/astral-sh/uv-pre-commit
   rev: 0.7.3

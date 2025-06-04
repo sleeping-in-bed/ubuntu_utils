@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+source "$(dirname "$0")/lib/myshlib"
+exec_script_dir_py lib/get_docker_file.py "$@"

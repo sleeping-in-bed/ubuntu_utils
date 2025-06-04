@@ -11,13 +11,11 @@ from pathlib import Path
 from queue import Queue
 from typing import Any
 
-from ubuntu_utils import configs
-
 from .duplicate_check import DuplicateCheck
 from .execution_recorder import ExecutionRecorder
 from .lib.network_utils import ClientSocket, ServerSocket, find_free_port
 from .lib.serialization_utils import Serializer
-from .settings import Settings
+from .settings import Settings, configs
 from .utils import Ret, command_print, error_print, execute, success_print
 
 
@@ -43,7 +41,7 @@ class Command:
 
     def __str__(self):
         s = f"{self.__class__.__name__}("
-        for key in vars(self).keys():
+        for key in vars(self):
             s += f"{key}: {getattr(self, key)}, "
         return s + ")"
 
@@ -52,7 +50,10 @@ class Command:
 
 class RootProcess:
     def __init__(
-        self, port: int = None, exec_check: bool = True, duplicate_check: bool = True
+        self,
+        port: int | None = None,
+        exec_check: bool = True,
+        duplicate_check: bool = True,
     ):
         self._host, self._port, self._exec_check = "0.0.0.0", port, exec_check
         if not self._port:
@@ -71,12 +72,14 @@ class RootProcess:
         self.vars = {}
 
         self._command_queue, self._result_queue = Queue(), Queue()
-        self._server_socket = ServerSocket(self._host, self._port)
-        self._server_socket.handle(self._handler)
-        print(f"Server running on {self._host}:{self._port}")
         Serializer(Settings.shared_file, data_type=dict).dump_json({"port": self._port})
         print("current_vars:")
         configs.print_all_config()
+
+    def start(self):
+        self._server_socket = ServerSocket(self._host, self._port)
+        self._server_socket.handle(self._handler)
+        print(f"Server running on {self._host}:{self._port}")
 
     def _handler(self, client_socket: ClientSocket, addr: Any):
         while True:
@@ -200,9 +203,9 @@ class UserProcess:
             if not received_data:
                 break
             command: Command = pickle.loads(received_data)
-            if command.cmd_type == CommandType.BASH:
+            if command.cmd_type.value == CommandType.BASH.value:
                 result: Ret = self._exec(**command.__dict__)
-            elif command.cmd_type == CommandType.EVAL:
+            elif command.cmd_type.value == CommandType.EVAL.value:
                 result: Any = eval(command.command)
             else:
                 raise AssertionError(f"Unknown command type {command.cmd_type}")
@@ -218,9 +221,7 @@ class UserProcess:
         command_print(f"Run > {command}")
         start_time = time.perf_counter()
         try:
-            ret = execute(
-                command, capture=capture, ignore_error=ignore_error, show_command=False
-            )
+            ret = execute(command, ignore_error=ignore_error, show_command=False)
         except AssertionError as e:
             error_print(f"Err > elapsed time: {time.perf_counter() - start_time:.4f}s")
             raise e

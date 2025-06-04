@@ -14,6 +14,7 @@ def root_process(tmp_path):
     print(tmp_path)
     Settings.tmp_dir = tmp_path
     rp = RootProcess(duplicate_check=False)
+    rp.start()
     time.sleep(0.5)
     UserProcess()
     yield rp

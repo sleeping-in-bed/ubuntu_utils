@@ -1,7 +1,8 @@
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).parent.parent / "libs"))
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from ubuntu_utils import configs  # noqa
 from .lib.other_utils import ClassProperty
 
 
@@ -17,6 +18,9 @@ class Settings:
     shared_file: Path = ClassProperty(lambda cls: cls.tmp_dir / "shared.json")
     execution_record_file: Path = ClassProperty(lambda cls: cls.tmp_dir / "exec.json")
     configs_file: Path = ClassProperty(lambda cls: cls.src_dir / "configs.py")
+    configs_template_file: Path = ClassProperty(
+        lambda cls: cls.src_dir / "configs.template.py"
+    )
 
     root_process_instance_name = "r"
     interval = 0.1

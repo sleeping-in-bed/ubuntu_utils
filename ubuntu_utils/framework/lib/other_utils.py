@@ -25,9 +25,7 @@ class is_sys(FunctionClass):
 
     def __call__(self, os_name: str) -> bool:
         this_os_name = platform.system()
-        if os_name == this_os_name:
-            return True
-        return False
+        return os_name == this_os_name
 
 
 class ClassProperty:

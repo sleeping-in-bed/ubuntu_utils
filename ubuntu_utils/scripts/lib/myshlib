@@ -31,13 +31,13 @@ get_dbus_session_bus_address_env_var() {
 }
 
 exec_script_dir_py() {
-  local python_filename="$1"
-  shift
+  local python_filename="$1"   # First argument is the Python script filename
+  shift                        # Shift the arguments so "$@" contains only the remaining ones
   local script_dir
-  script_dir=$(dirname "$0")
+  script_dir=$(dirname "$0")  # Get the directory where this shell script is located
   local python_file
-  python_file="$script_dir/$python_filename"
-  python3 "$python_file" "$@"
+  python_file="$script_dir/$python_filename"  # Construct full path to the Python script
+  python3 "$python_file" "$@"  # Execute the Python script with all remaining arguments
 }
 
 sudo_exec_script_dir_py() {

@@ -12,9 +12,9 @@ from .serialization_utils import Serializer
 
 def _find(
     func: Callable,
-    try_ports: list[int] = None,
-    exclude_ports: list[int] = None,
-    try_range: tuple[int, int] = None,
+    try_ports: list[int] | None = None,
+    exclude_ports: list[int] | None = None,
+    try_range: tuple[int, int] | None = None,
 ) -> int | None:
     ports = (try_ports or []) + list(range(*try_range))
     exclude_ports = exclude_ports or []
@@ -31,9 +31,9 @@ def _find(
 
 def find_running_port(
     host: str = "127.0.0.1",
-    try_ports: list[int] = None,
-    exclude_ports: list[int] = None,
-    try_range: tuple[int, int] = None,
+    try_ports: list[int] | None = None,
+    exclude_ports: list[int] | None = None,
+    try_range: tuple[int, int] | None = None,
     timeout: float = 0.5,
 ) -> int | None:
     def _test(s: socket.socket, port: int):
@@ -47,8 +47,8 @@ def find_running_port(
 
 def find_free_port(
     host: str = "127.0.0.1",
-    try_ports: list[int] = None,
-    exclude_ports: list[int] = None,
+    try_ports: list[int] | None = None,
+    exclude_ports: list[int] | None = None,
     try_range: tuple[int, int] = (1024, 65536),
 ) -> int | None:
     def _test(s: socket.socket, port: int):
@@ -63,8 +63,8 @@ class ClientSocket:
         self,
         host: str = "127.0.0.1",
         port: int = 12345,
-        client_socket: socket.socket = None,
-        client_host: str = None,
+        client_socket: socket.socket | None = None,
+        client_host: str | None = None,
         client_port: int = 12345,
     ):
         self.host = host
@@ -139,6 +139,7 @@ class ClientSocket:
     def recv_pickle(self) -> Any | None:
         if data := self.recv():
             return self._serializer.load_pickle(data)
+        return None
 
     def close(self) -> None:
         return self.client_socket.close()

@@ -36,10 +36,7 @@ DOCKERHUB_PASSWORD = ""  # Docker Hub password
 
 def post_processing():
     global HAS_GUI
-    if HAS_GUI == "auto":
-        HAS_GUI = bool(os.environ.get("DISPLAY"))
-    else:
-        HAS_GUI = bool(HAS_GUI)
+    HAS_GUI = bool(os.environ.get("DISPLAY")) if HAS_GUI == "auto" else bool(HAS_GUI)
 
 
 def print_all_config():

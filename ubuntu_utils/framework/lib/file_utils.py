@@ -10,7 +10,7 @@ def get_file_paths(
     to_str: bool = False,
 ) -> list[Path] | list[str] | Generator[str | Path, None, None]:
     def _generate_file_paths() -> Generator[str | Path, None, None]:
-        for root, dirs, files in os.walk(folder_path):
+        for root, _dirs, files in os.walk(folder_path):
             for file in files:
                 if relative:
                     file_path = os.path.relpath(os.path.join(root, file), folder_path)

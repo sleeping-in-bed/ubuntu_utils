@@ -1,5 +1,8 @@
+from pathlib import Path
+
 import configs
 
+from ubuntu_utils.framework.lib.serialization_utils import Serializer
 from ubuntu_utils.framework.settings import Settings
 from ubuntu_utils.framework.ssh import SSH
 
@@ -19,9 +22,9 @@ def get_apt_packages(packages: list[str]):
 
 
 if __name__ == "__main__":
-    get_apt_packages(
-        [
-            "python3-pkg-resources tcl-expect git build-essential python3-dev python3-pip python-is-python3 python3-tk",
-            "openssh-server xclip expect curl baobab flatpak",
-        ]
-    )
+    package_list = []
+    if not package_list:
+        package_list = Serializer(
+            Path(__file__).parent / "get_apt_packages.json", data_type=list
+        ).load_json()
+    get_apt_packages(package_list)

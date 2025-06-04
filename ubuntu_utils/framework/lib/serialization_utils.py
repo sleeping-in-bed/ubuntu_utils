@@ -28,14 +28,14 @@ def _convert_json_dict_key_to_number(data: Any) -> Any:
         # if data type is dict, convert it
         converted_dict = {}
         for key, value in data.items():
-            if type(key) == str:
+            if type(key) is str:
                 trans_type = _check_int_or_float(key)
                 key = trans_type(key)
             # process the values in dict, using recursion
             value = _convert_json_dict_key_to_number(value)
             converted_dict[key] = value
         return converted_dict
-    elif isinstance(data, (list, tuple, set)):
+    elif isinstance(data, (list | tuple | set)):
         # if date type is list, tuple or set, process it recursively
         converted_list = []
         for item in data:
@@ -61,7 +61,7 @@ def _get_empty_data_structure(
 
 def _get_data(func: Callable) -> Callable:
     @functools.wraps(func)
-    def wrapper(self, data: str | bytes = None, *args, **kwargs) -> Any:
+    def wrapper(self, data: str | bytes | None = None, *args, **kwargs) -> Any:
         if not data:
             if not self.path:
                 raise AssertionError(
@@ -87,7 +87,10 @@ def _dump(self: Any, data: bytes | str) -> bytes | str:
 
 class Serializer:
     def __init__(
-        self, path: str | Path = None, encoding: str = "utf-8", data_type: type = None
+        self,
+        path: str | Path | None = None,
+        encoding: str = "utf-8",
+        data_type: type | None = None,
     ):
         self.path, self.encoding, self.data_type = path, encoding, data_type
 
@@ -111,18 +114,18 @@ class Serializer:
             raise AssertionError
         return deserialized_data
 
-    def load_yaml(self, data: str = None, **kwargs) -> Any:
+    def load_yaml(self, data: str | None = None, **kwargs) -> Any:
         return self._load(data, yaml, **kwargs)
 
     def load_json(
-        self, data: str = None, trans_key_to_num: bool = False, **kwargs
+        self, data: str | None = None, trans_key_to_num: bool = False, **kwargs
     ) -> Any:
         json_data = self._load(data, json, **kwargs)
         if trans_key_to_num:
             return _convert_json_dict_key_to_number(json_data)
         return json_data
 
-    def load_pickle(self, data: bytes = None, **kwargs) -> Any:
+    def load_pickle(self, data: bytes | None = None, **kwargs) -> Any:
         return self._load(data, pickle, **kwargs)
 
     def dump_yaml(self, data: Any, allow_unicode: bool = True, **kwargs) -> str:

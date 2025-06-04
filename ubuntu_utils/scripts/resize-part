@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from init import *
+from lib.init import *
 import re
 import argparse
 

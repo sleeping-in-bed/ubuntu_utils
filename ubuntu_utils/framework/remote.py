@@ -2,14 +2,13 @@ import os
 import pickle
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib import request
+from pathlib import Path
+from urllib import error, request
 
 import requests
 
-from ubuntu_utils import configs
-
 from .lib.file_utils import get_file_paths
-from .settings import *
+from .settings import Settings, configs
 
 
 class FileServer:
@@ -46,18 +45,19 @@ class FileServer:
 
     def start(self):
         def _start():
-            with HTTPServer(
+            self.httpd = HTTPServer(
                 ("0.0.0.0", self.PORT), self.SimpleHTTPRequestHandler
-            ) as self.httpd:
-                print(f"Server Started: http://0.0.0.0:{self.PORT}")
-                self.httpd.serve_forever()
+            )
+            print(f"Server Started: http://0.0.0.0:{self.PORT}")
+            self.httpd.serve_forever()
 
         self.server_thread = threading.Thread(target=_start)
         self.server_thread.start()
 
     def close(self):
-        self.httpd.shutdown()
-        self.httpd.server_close()
+        if getattr(self, "httpd", None):
+            self.httpd.shutdown()
+            self.httpd.server_close()
         self.server_thread.join()
         print("Server Closed")
 
@@ -76,20 +76,24 @@ class Remote:
         if self.HOST and self.PORT:
             url = f"http://{self.HOST}:{self.PORT}/{file_path}"
             print(url)
-            with request.urlopen(url) as response:
-                dst_path = self.DST_DIR / file_path
-                dst_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(dst_path, "wb") as file:
-                    while True:
-                        chunk = response.read(1024 * 32)
-                        if not chunk:
-                            break
-                        file.write(chunk)
-                print(f"Get file '{dst_path}' successfully")
+            try:
+                with request.urlopen(url) as response:
+                    dst_path = self.DST_DIR / file_path
+                    dst_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(dst_path, "wb") as file:
+                        while True:
+                            chunk = response.read(1024 * 32)
+                            if not chunk:
+                                break
+                            file.write(chunk)
+                    print(f"Get file '{dst_path}' successfully")
+            except error.HTTPError as e:
+                if e.code == 404:
+                    return None
+                raise  # re-raise other HTTP errors
             return dst_path
 
     def get_file_paths(self, dir_path: Path | str) -> list[Path]:
-        print(self.HOST, self.PORT, self.LOCAL_DIR)
         if self.LOCAL_DIR:
             return get_file_paths(Path(self.LOCAL_DIR) / dir_path, relative=True)
 

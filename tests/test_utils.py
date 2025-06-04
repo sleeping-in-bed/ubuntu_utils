@@ -27,7 +27,7 @@ def test_execute(tmp_path):
     execute(f"touch {test_file}")
     assert test_file.exists()
 
-    ret = execute("echo 1", capture=True)
+    ret = execute("echo 1")
     assert ret.returncode == 0
     assert ret.stdout == "1\n"
     assert ret.stderr == ""
